@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <RootNamespace>NotasFiscais.Infrastructure</RootNamespace>
+    <AssemblyName>NotasFiscais.Infrastructure</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System.Net.Http" />
+    <Reference Include="System.Net.Http.WebRequest" />
+    <Reference Include="System.Security" />
+    <Reference Include="System.Xml" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NotasFiscais.Application\NotasFiscais.Application.csproj" />
+  </ItemGroup>
+</Project>

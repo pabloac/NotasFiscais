@@ -1,5 +1,6 @@
 using NotasFiscais.Application.Interfaces;
 using NotasFiscais.Domain.Entities;
+using NotasFiscais.Domain.Entities.Nfse;
 using NotasFiscais.Infrastructure.Services;
 using System;
 using System.Threading.Tasks;
@@ -22,10 +23,16 @@ namespace NotasFiscais.Infrastructure.Services.JuizDeFora
                 var soapEnvelope = MontarSoapEnvelope("ConsultarNfseServicoPrestado", MontarCabecalho(), xmlCorpo);
                 var xmlRetorno = await EnviarSoapAsync(soapEnvelope, "ConsultarNfseServicoPrestado", certificado);
 
+                // O retorno do método ASMX vem encapsulado em "ConsultarNfseServicoPrestadoResult",
+                // contendo o XML ABRASF de resposta como texto escapado dentro do envelope SOAP.
+                var resultadoXml = ExtrairResultadoSoap(xmlRetorno, "ConsultarNfseServicoPrestadoResult");
+                var resultado = DeserializarSemNamespace<ConsultarNfseServicoPrestadoResposta>(resultadoXml);
+
                 return new ConsultarNfseResponse
                 {
                     Sucesso = true,
                     XmlRetorno = xmlRetorno,
+                    Resultado = resultado,
                     SoapEnviadoDebug = soapEnvelope
                 };
             }
@@ -44,22 +51,13 @@ namespace NotasFiscais.Infrastructure.Services.JuizDeFora
         {
             var cnpj = request.Cnpj.Replace(".", "").Replace("/", "").Replace("-", "");
 
-            var inscricao = string.IsNullOrWhiteSpace(request.InscricaoMunicipal)
-                ? ""
-                : "\n    <InscricaoMunicipal>" + request.InscricaoMunicipal + "</InscricaoMunicipal>";
-
-            var periodo = (string.IsNullOrWhiteSpace(request.DataInicial) || string.IsNullOrWhiteSpace(request.DataFinal))
-                ? ""
-                : "\n  <PeriodoEmissao>\n    <DataInicial>" + request.DataInicial + "</DataInicial>\n    <DataFinal>" + request.DataFinal + "</DataFinal>\n  </PeriodoEmissao>";
-
-            return "<ConsultarNfseServicoPrestadoEnvio xmlns=\"" + DataNamespace + "\">\n" +
-                   "  <Prestador>\n" +
-                   "    <CpfCnpj>\n" +
-                   "      <Cnpj>" + cnpj + "</Cnpj>\n" +
-                   "    </CpfCnpj>" + inscricao + "\n" +
-                   "  </Prestador>" + periodo + "\n" +
-                   "  <Pagina>" + request.Pagina + "</Pagina>\n" +
-                   "</ConsultarNfseServicoPrestadoEnvio>";
+            return TemplateLoader.Carregar(GetType(), "ConsultarNfseServicoPrestadoEnvio.xml")
+                .Replace("{{NAMESPACE}}", DataNamespace)
+                .Replace("{{CNPJ}}", cnpj)
+                .Replace("{{INSCRICAO_MUNICIPAL}}", request.InscricaoMunicipal)
+                .Replace("{{DATA_INICIAL}}", request.DataInicial)
+                .Replace("{{DATA_FINAL}}", request.DataFinal)
+                .Replace("{{PAGINA}}", request.Pagina.ToString());
         }
     }
 }

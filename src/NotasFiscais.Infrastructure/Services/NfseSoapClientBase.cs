@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
@@ -7,6 +8,8 @@ using System.Security.Cryptography.Xml;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
+using System.Xml.Linq;
+using System.Xml.Serialization;
 
 namespace NotasFiscais.Infrastructure.Services
 {
@@ -114,6 +117,55 @@ namespace NotasFiscais.Infrastructure.Services
             return "<cabecalho versao=\"" + versao + "\" xmlns=\"" + DataNamespace + "\">\n" +
                    "   <versaoDados>" + versao + "</versaoDados>\n" +
                    "</cabecalho>";
+        }
+
+        /// <summary>
+        /// Extrai o conteúdo de um elemento de resultado (ex: "ConsultarNfseServicoPrestadoResult")
+        /// dentro do envelope SOAP de retorno. O conteúdo já vem decodificado (sem &lt;/&gt; escapados),
+        /// pois é exatamente assim que o XmlDocument/XDocument expõe o texto de um elemento.
+        /// </summary>
+        protected static string ExtrairResultadoSoap(string soapResponseXml, string nomeElementoResultado)
+        {
+            var doc = XDocument.Parse(soapResponseXml);
+            var elemento = doc.Descendants().FirstOrDefault(e => e.Name.LocalName == nomeElementoResultado);
+            return elemento?.Value;
+        }
+
+        /// <summary>
+        /// Desserializa um XML para o tipo T, ignorando namespaces — necessário porque cada
+        /// prefeitura/ABRASF declara namespaces de formas diferentes e isso quebraria o XmlSerializer
+        /// se as classes de domínio precisassem mapear cada variação.
+        /// </summary>
+        protected static T DeserializarSemNamespace<T>(string xml) where T : class
+        {
+            if (string.IsNullOrWhiteSpace(xml))
+                return null;
+
+            var doc = XDocument.Parse(xml);
+            RemoverNamespaces(doc.Root);
+
+            var serializer = new XmlSerializer(typeof(T));
+            using (var reader = doc.CreateReader())
+            {
+                return (T)serializer.Deserialize(reader);
+            }
+        }
+
+        private static void RemoverNamespaces(XElement elemento)
+        {
+            if (elemento == null)
+                return;
+
+            elemento.Name = elemento.Name.LocalName;
+
+            var atributos = elemento.Attributes()
+                .Where(a => !a.IsNamespaceDeclaration)
+                .Select(a => new XAttribute(a.Name.LocalName, a.Value))
+                .ToList();
+            elemento.ReplaceAttributes(atributos);
+
+            foreach (var filho in elemento.Elements())
+                RemoverNamespaces(filho);
         }
     }
 }

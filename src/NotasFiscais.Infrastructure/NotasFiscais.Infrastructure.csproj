@@ -9,8 +9,13 @@
     <Reference Include="System.Net.Http.WebRequest" />
     <Reference Include="System.Security" />
     <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\NotasFiscais.Application\NotasFiscais.Application.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Templates XML de cada prefeitura ficam embutidos na DLL — não dependem de pasta no servidor -->
+    <EmbeddedResource Include="Services\**\Templates\*.xml" />
   </ItemGroup>
 </Project>

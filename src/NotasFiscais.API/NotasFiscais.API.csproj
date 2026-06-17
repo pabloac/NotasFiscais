@@ -65,6 +65,7 @@
     <Compile Include="App_Start\SwaggerConfig.cs" />
     <Compile Include="App_Start\WebApiConfig.cs" />
     <Compile Include="Controllers\JuizDeForaController.cs" />
+    <Compile Include="Controllers\LimaDuarteController.cs" />
     <Compile Include="Controllers\TestDriveController.cs" />
     <Compile Include="Global.asax.cs">
       <DependentUpon>Global.asax</DependentUpon>

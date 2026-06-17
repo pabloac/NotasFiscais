@@ -59,5 +59,51 @@ namespace NotasFiscais.Infrastructure.Services.JuizDeFora
                 .Replace("{{DATA_FINAL}}", request.DataFinal)
                 .Replace("{{PAGINA}}", request.Pagina.ToString());
         }
+
+        public async Task<ConsultarNfseResponse> ConsultarNfseServicoTomadoAsync(ConsultarNfsePorTomadorRequest request)
+        {
+            try
+            {
+                var certificado = CarregarCertificado(request.Cnpj, request.SenhaCertificado);
+
+                var xmlCorpo = MontarXmlConsultaPorTomador(request);
+                var soapEnvelope = MontarSoapEnvelope("ConsultarNfseServicoTomado", MontarCabecalho(), xmlCorpo);
+                var xmlRetorno = await EnviarSoapAsync(soapEnvelope, "ConsultarNfseServicoTomado", certificado);
+
+                var resultadoXml = ExtrairResultadoSoap(xmlRetorno, "ConsultarNfseServicoTomadoResult");
+                var resultado = DeserializarSemNamespace<ConsultarNfseServicoPrestadoResposta>(resultadoXml);
+
+                return new ConsultarNfseResponse
+                {
+                    Sucesso = true,
+                    XmlRetorno = xmlRetorno,
+                    Resultado = resultado,
+                    SoapEnviadoDebug = soapEnvelope
+                };
+            }
+            catch (Exception ex)
+            {
+                return new ConsultarNfseResponse
+                {
+                    Sucesso = false,
+                    MensagemErro = ex.Message,
+                    LogErro = ExceptionLogger.Capturar(ex)
+                };
+            }
+        }
+
+        private string MontarXmlConsultaPorTomador(ConsultarNfsePorTomadorRequest request)
+        {
+            var cnpj = request.Cnpj.Replace(".", "").Replace("/", "").Replace("-", "");
+            
+            return TemplateLoader.Carregar(GetType(), "ConsultarNfseServicoTomadoEnvio.xml")
+                .Replace("{{NAMESPACE}}", DataNamespace)
+                .Replace("{{CNPJ}}", cnpj)
+                .Replace("{{INSCRICAO_MUNICIPAL}}", request.InscricaoMunicipal)
+                //.Replace("{{CPF_CNPJ_TOMADOR}}", nodeCpfCnpjTomador)
+                .Replace("{{DATA_INICIAL}}", request.DataInicial)
+                .Replace("{{DATA_FINAL}}", request.DataFinal)
+                .Replace("{{PAGINA}}", request.Pagina.ToString());
+        }
     }
 }

@@ -25,6 +25,12 @@ namespace NotasFiscais.Infrastructure.Services
         protected virtual string ParamCabecalho => "cabecalho";
         protected virtual string ParamDados => "xml";
 
+        // Prefixo do namespace usado no envelope SOAP (ex: "web" → xmlns:web="...", "nfse" → xmlns:nfse="...")
+        protected virtual string NsPrefix => "web";
+
+        // Quando false, os elementos dos parâmetros não levam o prefixo de namespace (ex: Lima Duarte)
+        protected virtual bool ParamUsaNsPrefix => true;
+
         protected X509Certificate2 CarregarCertificado(string cnpj, string senha)
         {
             var cnpjLimpo = cnpj.Replace(".", "").Replace("/", "").Replace("-", "");
@@ -75,19 +81,20 @@ namespace NotasFiscais.Infrastructure.Services
 
         protected string MontarSoapEnvelope(string soapAction, string cabecalho, string xmlCorpo)
         {
-            // tns: é o prefixo local para o namespace do serviço — os parâmetros herdam o mesmo namespace
+            var p = NsPrefix;
+            var pc = ParamUsaNsPrefix ? p + ":" : "";
             var sb = new StringBuilder();
-            sb.AppendLine("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:web=\"" + Namespace + "\">");
+            sb.AppendLine("<soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:" + p + "=\"" + Namespace + "\">");
             sb.AppendLine("   <soapenv:Header/>");
             sb.AppendLine("   <soapenv:Body>");
-            sb.AppendLine("      <web:" + soapAction + ">");
-            sb.AppendLine("         <web:" + ParamCabecalho + "><![CDATA[");
+            sb.AppendLine("      <" + p + ":" + soapAction + ">");
+            sb.AppendLine("         <" + pc + ParamCabecalho + "><![CDATA[");
             sb.AppendLine(cabecalho);
-            sb.AppendLine("         ]]></web:" + ParamCabecalho + ">");
-            sb.AppendLine("         <web:" + ParamDados + "><![CDATA[");
+            sb.AppendLine("         ]]></" + pc + ParamCabecalho + ">");
+            sb.AppendLine("         <" + pc + ParamDados + "><![CDATA[");
             sb.AppendLine(xmlCorpo);
-            sb.AppendLine("         ]]></web:" + ParamDados + ">");
-            sb.AppendLine("      </web:" + soapAction + ">");
+            sb.AppendLine("         ]]></" + pc + ParamDados + ">");
+            sb.AppendLine("      </" + p + ":" + soapAction + ">");
             sb.AppendLine("   </soapenv:Body>");
             sb.Append("</soapenv:Envelope>");
             return sb.ToString();
@@ -144,7 +151,11 @@ namespace NotasFiscais.Infrastructure.Services
             var doc = XDocument.Parse(xml);
             RemoverNamespaces(doc.Root);
 
-            var serializer = new XmlSerializer(typeof(T));
+            // Override do elemento raiz pelo nome real do XML — permite reaproveitar a mesma classe
+            // de domínio para operações ABRASF diferentes (ex: ConsultarNfseServicoPrestadoResposta
+            // e ConsultarNfseServicoTomadoResposta), já que a estrutura interna é idêntica.
+            var raizOverride = new XmlRootAttribute(doc.Root.Name.LocalName);
+            var serializer = new XmlSerializer(typeof(T), raizOverride);
             using (var reader = doc.CreateReader())
             {
                 return (T)serializer.Deserialize(reader);

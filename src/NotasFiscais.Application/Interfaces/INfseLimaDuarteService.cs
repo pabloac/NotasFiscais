@@ -3,9 +3,8 @@ using System.Threading.Tasks;
 
 namespace NotasFiscais.Application.Interfaces
 {
-    public interface INfseJuizDeForaService
+    public interface INfseLimaDuarteService
     {
         Task<ConsultarNfseResponse> ConsultarNfseServicoPrestadoAsync(ConsultarNfseRequest request);
-        Task<ConsultarNfseResponse> ConsultarNfseServicoTomadoAsync(ConsultarNfsePorTomadorRequest request);
     }
 }

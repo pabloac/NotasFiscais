@@ -1,0 +1,13 @@
+<ConsultarNfseServicoTomadoEnvio xmlns="{{NAMESPACE}}">
+  <Consulente>
+    <CpfCnpj>
+      <Cnpj>{{CNPJ}}</Cnpj>
+    </CpfCnpj>
+    <InscricaoMunicipal>{{INSCRICAO_MUNICIPAL}}</InscricaoMunicipal>
+  </Consulente>
+  <PeriodoEmissao>
+	<DataInicial>{{DATA_INICIAL}}</DataInicial>
+	<DataFinal>{{DATA_FINAL}}</DataFinal>
+  </PeriodoEmissao>
+  <Pagina>{{PAGINA}}</Pagina>
+</ConsultarNfseServicoTomadoEnvio>

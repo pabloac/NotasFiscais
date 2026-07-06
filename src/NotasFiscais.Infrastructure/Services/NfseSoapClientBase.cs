@@ -28,8 +28,17 @@ namespace NotasFiscais.Infrastructure.Services
         // Prefixo do namespace usado no envelope SOAP (ex: "web" → xmlns:web="...", "nfse" → xmlns:nfse="...")
         protected virtual string NsPrefix => "web";
 
-        // Quando false, os elementos dos parâmetros não levam o prefixo de namespace (ex: Lima Duarte)
+        // Quando false, os elementos dos parâmetros não levam o prefixo de namespace
         protected virtual bool ParamUsaNsPrefix => true;
+
+        // Namespace do elemento <cabecalho> — algumas prefeituras usam um namespace diferente do DataNamespace
+        protected virtual string CabecalhoNamespace => DataNamespace;
+
+        // Quando false, o cabecalho é enviado como XML puro (sem CDATA) dentro do parâmetro
+        protected virtual bool CabecalhoEmCdata => true;
+
+        // Valor do header HTTP SOAPAction — override para "" quando o servidor não exige ou rejeita o valor completo
+        protected virtual string MontarSoapActionHeader(string soapAction) => "\"" + Namespace + "/" + soapAction + "\"";
 
         protected X509Certificate2 CarregarCertificado(string cnpj, string senha)
         {
@@ -51,14 +60,41 @@ namespace NotasFiscais.Infrastructure.Services
             var doc = new XmlDocument { PreserveWhitespace = true };
             doc.LoadXml(xmlOriginal);
 
-            // Reimporta a chave RSA para evitar bloqueio do container Windows CryptoAPI
+            var signatureXml = ComputarAssinatura(doc, certificado);
+
+            // Signature fica APÓS o elemento raiz (irmã, não filha) — padrão Fintel/ABRASF
+            return xmlOriginal + "\n" + signatureXml;
+        }
+
+        // Assina o elemento de nome informado inserindo a <Signature> como último filho dele.
+        // Usado no GerarNfse onde a Signature fica dentro de <Rps>, não após o elemento raiz.
+        protected string AssinarXmlDentroDoElemento(string xmlCompleto, string nomeElemento, X509Certificate2 certificado)
+        {
+            var doc = new XmlDocument { PreserveWhitespace = true };
+            doc.LoadXml(xmlCompleto);
+
+            var elementoAlvo = (XmlElement)doc.GetElementsByTagName(nomeElemento)[0];
+
+            // Extrai o elemento para doc temporário para que a assinatura cubra apenas ele
+            var docTemp = new XmlDocument { PreserveWhitespace = true };
+            docTemp.LoadXml(elementoAlvo.OuterXml);
+
+            var signatureXml = ComputarAssinatura(docTemp, certificado);
+
+            var signatureDoc = new XmlDocument();
+            signatureDoc.LoadXml(signatureXml);
+            elementoAlvo.AppendChild(doc.ImportNode(signatureDoc.DocumentElement, true));
+
+            return doc.DocumentElement.OuterXml;
+        }
+
+        private string ComputarAssinatura(XmlDocument doc, X509Certificate2 certificado)
+        {
             var rsaOriginal = (RSACryptoServiceProvider)certificado.PrivateKey;
             var rsa = new RSACryptoServiceProvider();
             rsa.ImportParameters(rsaOriginal.ExportParameters(true));
 
             var signedXml = new SignedXml(doc) { SigningKey = rsa };
-
-            // SHA1 — padrão exigido pelo ABRASF para prefeituras brasileiras
             signedXml.SignedInfo.SignatureMethod = "http://www.w3.org/2000/09/xmldsig#rsa-sha1";
 
             var reference = new Reference { Uri = "" };
@@ -72,11 +108,7 @@ namespace NotasFiscais.Infrastructure.Services
             signedXml.KeyInfo = keyInfo;
 
             signedXml.ComputeSignature();
-
-            // Signature fica APÓS o elemento raiz (irmã, não filha)
-            // — o servidor Fintel/ABRASF espera os dois como fragmento dentro do CDATA
-            var signatureXml = signedXml.GetXml().OuterXml;
-            return xmlOriginal + "\n" + signatureXml;
+            return signedXml.GetXml().OuterXml;
         }
 
         protected string MontarSoapEnvelope(string soapAction, string cabecalho, string xmlCorpo)
@@ -88,9 +120,18 @@ namespace NotasFiscais.Infrastructure.Services
             sb.AppendLine("   <soapenv:Header/>");
             sb.AppendLine("   <soapenv:Body>");
             sb.AppendLine("      <" + p + ":" + soapAction + ">");
-            sb.AppendLine("         <" + pc + ParamCabecalho + "><![CDATA[");
-            sb.AppendLine(cabecalho);
-            sb.AppendLine("         ]]></" + pc + ParamCabecalho + ">");
+            if (CabecalhoEmCdata)
+            {
+                sb.AppendLine("         <" + pc + ParamCabecalho + "><![CDATA[");
+                sb.AppendLine(cabecalho);
+                sb.AppendLine("         ]]></" + pc + ParamCabecalho + ">");
+            }
+            else
+            {
+                sb.AppendLine("         <" + pc + ParamCabecalho + ">");
+                sb.AppendLine(cabecalho);
+                sb.AppendLine("         </" + pc + ParamCabecalho + ">");
+            }
             sb.AppendLine("         <" + pc + ParamDados + "><![CDATA[");
             sb.AppendLine(xmlCorpo);
             sb.AppendLine("         ]]></" + pc + ParamDados + ">");
@@ -109,7 +150,7 @@ namespace NotasFiscais.Infrastructure.Services
             using (var client = new HttpClient(handler))
             {
                 client.Timeout = TimeSpan.FromSeconds(60);
-                client.DefaultRequestHeaders.Add("SOAPAction", "\"" + Namespace + "/" + soapAction + "\"");
+                client.DefaultRequestHeaders.Add("SOAPAction", MontarSoapActionHeader(soapAction));
 
                 var content = new StringContent(soapEnvelope, Encoding.UTF8, "text/xml");
                 var response = await client.PostAsync(EndpointUrl, content);
@@ -121,7 +162,7 @@ namespace NotasFiscais.Infrastructure.Services
 
         protected string MontarCabecalho(string versao = "2.02")
         {
-            return "<cabecalho versao=\"" + versao + "\" xmlns=\"" + DataNamespace + "\">\n" +
+            return "<cabecalho versao=\"" + versao + "\" xmlns=\"" + CabecalhoNamespace + "\">\n" +
                    "   <versaoDados>" + versao + "</versaoDados>\n" +
                    "</cabecalho>";
         }

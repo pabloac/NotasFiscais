@@ -4,6 +4,8 @@ using NotasFiscais.Infrastructure.Services.LimaDuarte;
 using System.Threading.Tasks;
 using System.Web.Http;
 
+// LimaDuarte: ConsultarNfse (GET) e GerarNfse (POST)
+
 namespace NotasFiscais.API.Controllers
 {
     [RoutePrefix("api/LimaDuarte")]
@@ -31,6 +33,23 @@ namespace NotasFiscais.API.Controllers
 
             var useCase = new ConsultarNfseUseCase(new LimaDuarteNfseService());
             var resultado = await useCase.ExecutarAsync(request);
+
+            if (!resultado.Sucesso)
+                return BadRequest(resultado.MensagemErro);
+
+            return Ok(resultado);
+        }
+
+        [HttpPost]
+        [Route("GerarNfse")]
+        public async Task<IHttpActionResult> GerarNfse(
+            [FromUri] string cnpj,
+            [FromUri] string senhaCertificado,
+            [FromUri] string inscricaoMunicipal,
+            [FromBody] GerarNfseRequest request)
+        {
+            var useCase = new GerarNfseUseCase(new LimaDuarteNfseService());
+            var resultado = await useCase.ExecutarAsync(cnpj, inscricaoMunicipal, senhaCertificado, request);
 
             if (!resultado.Sucesso)
                 return BadRequest(resultado.MensagemErro);

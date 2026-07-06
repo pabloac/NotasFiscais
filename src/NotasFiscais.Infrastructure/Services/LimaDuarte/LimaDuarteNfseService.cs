@@ -28,7 +28,7 @@ namespace NotasFiscais.Infrastructure.Services.LimaDuarte
             {
                 var certificado = CarregarCertificado(request.Cnpj, request.SenhaCertificado);
 
-                var xmlCorpo = AssinarXml(MontarXmlConsulta(request), certificado);
+                var xmlCorpo = AssinarXmlDentroDoElemento(MontarXmlConsulta(request), "ConsultarNfseServicoPrestadoEnvio", certificado);
                 var soapEnvelope = MontarSoapEnvelope("ConsultarNfseServicoPrestadoRequest", MontarCabecalho(), xmlCorpo);
                 var xmlRetorno = await EnviarSoapAsync(soapEnvelope, "ConsultarNfseServicoPrestadoRequest", certificado);
 
@@ -79,10 +79,14 @@ namespace NotasFiscais.Infrastructure.Services.LimaDuarte
                 var soapEnvelope = MontarSoapEnvelope("GerarNfseRequest", MontarCabecalho(), xmlCorpo);
                 var xmlRetorno = await EnviarSoapAsync(soapEnvelope, "GerarNfseRequest", certificado);
 
+                var resultadoXml = ExtrairResultadoSoap(xmlRetorno, "outputXML");
+                var resultado = DeserializarSemNamespace<ConsultarNfseServicoPrestadoResposta>(resultadoXml);
+
                 return new GerarNfseResponse
                 {
                     Sucesso = true,
                     XmlRetorno = xmlRetorno,
+                    Resultado = resultado,
                     SoapEnviadoDebug = soapEnvelope
                 };
             }

@@ -151,12 +151,20 @@ namespace NotasFiscais.Infrastructure.Services
             {
                 client.Timeout = TimeSpan.FromSeconds(60);
                 client.DefaultRequestHeaders.Add("SOAPAction", MontarSoapActionHeader(soapAction));
+                client.DefaultRequestHeaders.Add("User-Agent", "Apache-HttpClient/4.5.14 (Java/17)");
+                client.DefaultRequestHeaders.Add("Accept", "text/xml, multipart/related");
+                client.DefaultRequestHeaders.Add("Connection", "keep-alive");
 
                 var content = new StringContent(soapEnvelope, Encoding.UTF8, "text/xml");
                 var response = await client.PostAsync(EndpointUrl, content);
-                response.EnsureSuccessStatusCode();
 
-                return await response.Content.ReadAsStringAsync();
+                var responseBody = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                    throw new HttpRequestException(
+                        $"HTTP {(int)response.StatusCode} {response.ReasonPhrase} — Corpo: {responseBody}");
+
+                return responseBody;
             }
         }
 

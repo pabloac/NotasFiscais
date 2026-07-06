@@ -1,4 +1,5 @@
 using Newtonsoft.Json;
+using NotasFiscais.Domain.Entities.Nfse;
 
 namespace NotasFiscais.Domain.Entities
 {
@@ -7,6 +8,7 @@ namespace NotasFiscais.Domain.Entities
         public bool Sucesso { get; set; }
         [JsonIgnore]
         public string XmlRetorno { get; set; }
+        public ConsultarNfseServicoPrestadoResposta Resultado { get; set; }
         public string MensagemErro { get; set; }
         [JsonIgnore]
         public string LogErro { get; set; }

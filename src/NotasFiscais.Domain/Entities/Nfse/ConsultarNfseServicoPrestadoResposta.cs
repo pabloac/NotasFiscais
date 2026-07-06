@@ -135,8 +135,16 @@ namespace NotasFiscais.Domain.Entities.Nfse
 
     public class Rps
     {
+        public IdentificacaoRps IdentificacaoRps { get; set; }
         public string DataEmissao { get; set; }
         public string Status { get; set; }
+    }
+
+    public class IdentificacaoRps
+    {
+        public string Numero { get; set; }
+        public string Serie { get; set; }
+        public string Tipo { get; set; }
     }
 
     public class Servico
@@ -146,6 +154,8 @@ namespace NotasFiscais.Domain.Entities.Nfse
         public string ItemListaServico { get; set; }
         public string CodigoTributacaoMunicipio { get; set; }
         public string Discriminacao { get; set; }
+        public string TribNacional { get; set; }
+        public string NBS { get; set; }
         public string CodigoMunicipio { get; set; }
         public string CodigoPais { get; set; }
         public string ExigibilidadeISS { get; set; }
